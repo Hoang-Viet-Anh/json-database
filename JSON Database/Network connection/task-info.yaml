@@ -97,6 +97,178 @@ files:
         }
     }
   learner_created: false
+- name: src/client/Database.java
+  visible: true
+  text: |
+    package client;
+
+    import java.util.ArrayList;
+
+    public class Database {
+        private static final Database INSTANCE = new Database();
+        ArrayList<String> database = new ArrayList<>(100);
+
+        private Database() {
+            for (int i = 0; i < 100; i++) {
+                database.add(null);
+            }
+        }
+
+        public static Database getInstance() {
+            return INSTANCE;
+        }
+
+        public boolean setCell(String text, int index) {
+            try {
+                if (!text.equals("")) {
+                    database.set(index - 1, text);
+                    return true;
+                } else {
+                    return false;
+                }
+            } catch (IndexOutOfBoundsException exc) {
+                return false;
+            }
+        }
+
+        public String getCell(int index) {
+            try {
+                String cell = database.get(index - 1);
+                return cell == null ? "ERROR" : cell;
+            } catch (IndexOutOfBoundsException exc) {
+                return "ERROR";
+            }
+        }
+
+        public boolean deleteCell(int index) {
+            try {
+                database.set(index - 1, null);
+                return true;
+            } catch (IndexOutOfBoundsException exc) {
+                return false;
+            }
+        }
+    }
+  learner_created: true
+- name: src/client/View.java
+  visible: true
+  text: |
+    package client;
+
+    public class View {
+        private static final View INSTANCE = new View();
+
+        private View() {}
+
+        public static View getInstance() {
+            return INSTANCE;
+        }
+
+        public void printMenu() {
+            System.out.println("set index text - set text by index of db.\n" +
+                    "get index - get text by index of db.\n" +
+                    "delete index - delete text by index of db.");
+        }
+
+        public void printSet(boolean set) {
+            System.out.println(set ? "OK" : "ERROR");
+        }
+
+        public void printGet(String cell) {
+            System.out.println(cell);
+        }
+
+        public void printDelete(boolean delete) {
+            System.out.println(delete ? "OK" : "ERROR");
+        }
+
+        public void printUnknownCommand() {
+            System.out.println("Unknown command.");
+        }
+    }
+  learner_created: true
+- name: src/client/Application.java
+  visible: true
+  text: |
+    package client;
+
+    import java.util.InputMismatchException;
+    import java.util.NoSuchElementException;
+    import java.util.Scanner;
+
+    public class Application {
+        public static void startJSONDB() {
+            Database database = Database.getInstance();
+            View view = View.getInstance();
+
+            Scanner scanner = new Scanner(System.in);
+            Scanner scanner1;
+
+            String line = "";
+            String[] command;
+            String text = null;
+            String choice = null;
+            int index = -1;
+            boolean success = false;
+            view.printMenu();
+            while (true) {
+                line = scanner.nextLine();
+
+                try {
+                    scanner1 = new Scanner(line);
+                    choice = scanner1.next();
+
+                    switch (choice) {
+                        case "set":
+                            if (scanner1.hasNextInt()) {
+                                index = scanner1.nextInt();
+                                if (scanner1.hasNext()) {
+                                    text = scanner1.nextLine().trim();
+                                    success = database.setCell(text, index);
+                                } else {
+                                    success = false;
+                                }
+                            } else {
+                                success = false;
+                            }
+                            view.printSet(success);
+                            break;
+                        case "get":
+                            if (scanner1.hasNextInt()) {
+                                index = scanner1.nextInt();
+                                view.printGet(database.getCell(index));
+                            } else {
+                                view.printGet("ERROR");
+                            }
+                            break;
+                        case "delete":
+                            if (scanner1.hasNextInt()) {
+                                index = scanner1.nextInt();
+                                success = database.deleteCell(index);
+                            } else {
+                                success = false;
+                            }
+                            view.printDelete(success);
+                            break;
+                        case "exit":
+                            System.exit(0);
+                        default:
+                            view.printUnknownCommand();
+                            break;
+                    }
+                } catch (NoSuchElementException exc) {
+                    view.printUnknownCommand();
+                }
+            }
+        }
+    }
+  learner_created: true
+- name: src/server/Session.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/5491#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: Mon, 28 Mar 2022 20:26:20 UTC
 record: -1
