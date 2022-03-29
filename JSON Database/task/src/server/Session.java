@@ -5,7 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 
-public class Session extends Thread{
+public class Session extends Thread {
     private final Socket socket;
 
     public Session(Socket socketForClient) {
@@ -22,15 +22,18 @@ public class Session extends Thread{
         ) {
             received = input.readUTF();
             System.out.println("Received: " + received);
-            if (received.contains("Give me a record # ")) {
-                received = received.substring(received.indexOf("#") + 2);
-                sent = String.format("A record # %s was sent!", received);
+            sent = Application.startJSONDB(received);
+            if (sent.equals("exit")) {
+                sent = "OK";
+                System.out.println("Sent: " + sent);
+                output.writeUTF(sent);
+                socket.close();
+                Main.loop = false;
             } else {
-                sent = "Unknown command.";
+                System.out.println("Sent: " + sent);
+                output.writeUTF(sent);
+                socket.close();
             }
-            System.out.println("Sent: " + sent);
-            output.writeUTF(sent);
-            socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
