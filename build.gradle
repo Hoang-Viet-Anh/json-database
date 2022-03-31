@@ -3,7 +3,7 @@ apply plugin: 'hyperskill'
 subprojects {
     apply plugin: 'application'
     apply plugin: 'java'
-    archivesBaseName = 'server'
+    archivesBaseName = 'serverFile'
 
     def userJava = Integer.parseInt(JavaVersion.current().getMajorVersion())
     def hsJava = Integer.parseInt(hs.java.version)
@@ -25,7 +25,7 @@ subprojects {
 
     jar {
         manifest {
-            attributes "Main-Class": "client.Main"
+            attributes "Main-Class": "server.Main"
         }
         duplicatesStrategy "exclude"
         from {

@@ -23,8 +23,7 @@ public class Session extends Thread {
             received = input.readUTF();
             System.out.println("Received: " + received);
             sent = Application.startJSONDB(received);
-            if (sent.equals("exit")) {
-                sent = "OK";
+            if (received.contains("exit")) {
                 System.out.println("Sent: " + sent);
                 output.writeUTF(sent);
                 socket.close();

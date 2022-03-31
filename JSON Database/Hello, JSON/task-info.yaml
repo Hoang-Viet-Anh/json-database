@@ -24,49 +24,6 @@ files:
         }
     }
   learner_created: false
-- name: test/JsonFinder.java
-  visible: false
-  text: |
-    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
-
-    import java.util.regex.Matcher;
-    import java.util.regex.Pattern;
-
-    public class JsonFinder {
-
-        private static final Pattern pattern = Pattern.compile("\\{.+}");
-
-        public static String findRequestJsonObject(String output) {
-
-            Matcher matcher = pattern.matcher(output);
-
-            while (matcher.find()) {
-                String json = matcher.group();
-                if (json.contains("type")) {
-                    return json;
-                }
-            }
-
-            throw new WrongAnswer("Can't find request JSON object in the output.\n" +
-                    "It should contain 'type' key");
-        }
-
-        public static String findResponseJsonObject(String output) {
-
-            Matcher matcher = pattern.matcher(output);
-
-            while (matcher.find()) {
-                String json = matcher.group();
-                if (json.contains("response")) {
-                    return json;
-                }
-            }
-
-            throw new WrongAnswer("Can't find request JSON object in the output.\n" +
-                    "It should contain 'response' key");
-        }
-    }
-  learner_created: false
 - name: test/JsonDatabaseTest.java
   visible: false
   text: |
@@ -391,6 +348,286 @@ files:
 
     }
   learner_created: false
+- name: src/server/Session.java
+  visible: true
+  text: |
+    package server;
+
+    import java.io.DataInputStream;
+    import java.io.DataOutputStream;
+    import java.io.IOException;
+    import java.net.Socket;
+
+    public class Session extends Thread {
+        private final Socket socket;
+
+        public Session(Socket socketForClient) {
+            this.socket = socketForClient;
+        }
+
+        public void run() {
+            String received = null;
+            String sent = null;
+
+            try (
+                    DataInputStream input = new DataInputStream(socket.getInputStream());
+                    DataOutputStream output = new DataOutputStream(socket.getOutputStream())
+            ) {
+                received = input.readUTF();
+                System.out.println("Received: " + received);
+                sent = Application.startJSONDB(received);
+                if (sent.equals("exit")) {
+                    sent = "OK";
+                    System.out.println("Sent: " + sent);
+                    output.writeUTF(sent);
+                    socket.close();
+                    Main.loop = false;
+                } else {
+                    System.out.println("Sent: " + sent);
+                    output.writeUTF(sent);
+                    socket.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+  learner_created: true
+- name: src/server/Application.java
+  visible: true
+  text: |
+    package server;
+
+    import server.Database;
+    import server.View;
+
+    import java.util.NoSuchElementException;
+    import java.util.Scanner;
+
+    public class Application {
+        private static Database database;
+        private static View view;
+
+        public static String startJSONDB(String command) {
+            database = Database.getInstance();
+            view = View.getInstance();
+
+            Scanner scanner1;
+
+            String line = "";
+            String choice = null;
+
+           // view.printMenu();
+
+           // while (true) {
+                line = command;
+
+                try {
+                    scanner1 = new Scanner(line);
+                    choice = scanner1.next();
+
+                    switch (choice) {
+                        case "set":
+                            return setCommand(scanner1);
+                        case "get":
+                            return getCommand(scanner1);
+                        case "delete":
+                            return deleteCommand(scanner1);
+                        case "exit":
+                            return "exit";
+                        default:
+                            return "Unknown command.";
+                    }
+                } catch (NoSuchElementException exc) {
+                    view.printUnknownCommand();
+                }
+            //}
+            return "";
+        }
+
+        private static String setCommand(Scanner scanner1) {
+            String text;
+            int index;
+            boolean success;
+
+            if (scanner1.hasNextInt()) {
+                index = scanner1.nextInt();
+                if (scanner1.hasNext()) {
+                    text = scanner1.nextLine().trim();
+                    success = database.setCell(text, index);
+                } else {
+                    success = false;
+                }
+            } else {
+                success = false;
+            }
+            return success ? "OK" : "ERROR";
+        }
+
+        private static String getCommand(Scanner scanner1) {
+            int index;
+
+            if (scanner1.hasNextInt()) {
+                index = scanner1.nextInt();
+                return  database.getCell(index);
+            } else {
+                return "ERROR";
+            }
+        }
+
+        private static String deleteCommand(Scanner scanner1) {
+            int index;
+            boolean success;
+
+            if (scanner1.hasNextInt()) {
+                index = scanner1.nextInt();
+                success = database.deleteCell(index);
+            } else {
+                success = false;
+            }
+            return success ? "OK" : "ERROR";
+        }
+    }
+  learner_created: true
+- name: src/server/Database.java
+  visible: true
+  text: |
+    package server;
+
+    import java.util.ArrayList;
+
+    public class Database {
+        private static final Database INSTANCE = new Database();
+        ArrayList<String> database = new ArrayList<>(1000);
+
+        private Database() {
+            for (int i = 0; i < 1000; i++) {
+                database.add(null);
+            }
+        }
+
+        public static Database getInstance() {
+            return INSTANCE;
+        }
+
+        public boolean setCell(String text, int index) {
+            try {
+                if (!text.equals("")) {
+                    database.set(index - 1, text);
+                    return true;
+                } else {
+                    return false;
+                }
+            } catch (IndexOutOfBoundsException exc) {
+                return false;
+            }
+        }
+
+        public String getCell(int index) {
+            try {
+                String cell = database.get(index - 1);
+                return cell == null ? "ERROR" : cell;
+            } catch (IndexOutOfBoundsException exc) {
+                return "ERROR";
+            }
+        }
+
+        public boolean deleteCell(int index) {
+            try {
+                database.set(index - 1, null);
+                return true;
+            } catch (IndexOutOfBoundsException exc) {
+                return false;
+            }
+        }
+    }
+  learner_created: true
+- name: src/server/View.java
+  visible: true
+  text: |
+    package server;
+
+    public class View {
+        private static final View INSTANCE = new View();
+
+        private View() {}
+
+        public static View getInstance() {
+            return INSTANCE;
+        }
+
+        public void printMenu() {
+            System.out.println("set index text - set text by index of db.\n" +
+                    "get index - get text by index of db.\n" +
+                    "delete index - delete text by index of db.");
+        }
+
+        public void printSet(boolean set) {
+            System.out.println(set ? "OK" : "ERROR");
+        }
+
+        public void printGet(String cell) {
+            System.out.println(cell);
+        }
+
+        public void printDelete(boolean delete) {
+            System.out.println(delete ? "OK" : "ERROR");
+        }
+
+        public void printUnknownCommand() {
+            System.out.println("Unknown command.");
+        }
+    }
+  learner_created: true
+- name: test/JsonFinder.java
+  visible: false
+  text: |
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+
+    import java.util.regex.Matcher;
+    import java.util.regex.Pattern;
+
+    public class JsonFinder {
+
+        private static final Pattern pattern = Pattern.compile("\\{.+}");
+
+        public static String findRequestJsonObject(String output) {
+
+            Matcher matcher = pattern.matcher(output);
+
+            while (matcher.find()) {
+                String json = matcher.group();
+                if (json.contains("type")) {
+                    return json;
+                }
+            }
+
+            throw new WrongAnswer("Can't find request JSON object in the output.\n" +
+                    "It should contain 'type' key");
+        }
+
+        public static String findResponseJsonObject(String output) {
+
+            Matcher matcher = pattern.matcher(output);
+
+            while (matcher.find()) {
+                String json = matcher.group();
+                if (json.contains("response")) {
+                    return json;
+                }
+            }
+
+            throw new WrongAnswer("Can't find request JSON object in the output.\n" +
+                    "It should contain 'response' key");
+        }
+    }
+  learner_created: false
+- name: src/client/Command.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/5493#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: Thu, 31 Mar 2022 12:13:28 UTC
 record: -1

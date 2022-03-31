@@ -1,49 +1,92 @@
 package server;
 
-import java.util.ArrayList;
+import com.google.gson.*;
+
 
 public class Database {
     private static final Database INSTANCE = new Database();
-    ArrayList<String> database = new ArrayList<>(1000);
+    private final JsonObject jsonDB;
+    private JsonObject cmd;
 
     private Database() {
-        for (int i = 0; i < 1000; i++) {
-            database.add(null);
-        }
+        jsonDB = new JsonObject();
     }
 
     public static Database getInstance() {
         return INSTANCE;
     }
 
-    public boolean setCell(String text, int index) {
-        try {
-            if (!text.equals("")) {
-                database.set(index - 1, text);
-                return true;
+    public String setCell(JsonObject cmd) {
+        JsonObject response = new JsonObject();
+        String key = cmd.getAsJsonPrimitive("key").getAsString();
+        if (jsonDB.has(key)) {
+            jsonDB.remove("key");
+        }
+        JsonElement jsonElement = jsonDB.getAsJsonPrimitive(key);
+        String value = cmd.getAsJsonPrimitive("value").getAsString();
+        jsonDB.addProperty(key, value);
+
+        response.addProperty("response", "OK");
+        return response.toString();
+    }
+
+    public String parseCommand(String json) {
+        cmd = JsonParser.parseString(json).getAsJsonObject();
+        String type = cmd.getAsJsonPrimitive("type").getAsString();
+
+        switch (type) {
+            case "set":
+                return setCell(cmd);
+            case "get":
+                return getCell(cmd);
+            case "delete":
+                return deleteCell(cmd);
+            case "exit":
+                return closeServer(cmd);
+            default:
+                break;
+        }
+        JsonObject response = new JsonObject();
+        response.addProperty("response", "ERROR");
+        response.addProperty("reason", "Unknown command");
+        return response.toString();
+    }
+
+    public String getCell(JsonObject cmd) {
+            String key = cmd.getAsJsonPrimitive("key").getAsString();
+            JsonObject response = new JsonObject();
+            if (jsonDB.has(key)) {
+                JsonElement jsonElement = jsonDB.getAsJsonPrimitive(key);
+                String value = jsonElement.getAsString();
+                response.addProperty("response", "OK");
+                response.addProperty("value", value);
+                return response.toString();
             } else {
-                return false;
+                response.addProperty("response", "ERROR");
+                response.addProperty("reason", "No such key");
+                return response.toString();
             }
-        } catch (IndexOutOfBoundsException exc) {
-            return false;
-        }
     }
 
-    public String getCell(int index) {
-        try {
-            String cell = database.get(index - 1);
-            return cell == null ? "ERROR" : cell;
-        } catch (IndexOutOfBoundsException exc) {
-            return "ERROR";
+    public String deleteCell(JsonObject cmd) {
+        String key = cmd.getAsJsonPrimitive("key").getAsString();
+        JsonObject response = new JsonObject();
+        if (jsonDB.remove(key) != null) {
+            response.addProperty("response", "OK");
+        } else {
+            response.addProperty("response", "ERROR");
+            response.addProperty("reason", "No such key");
         }
+        return response.toString();
     }
 
-    public boolean deleteCell(int index) {
-        try {
-            database.set(index - 1, null);
-            return true;
-        } catch (IndexOutOfBoundsException exc) {
-            return false;
+    public String closeServer(JsonObject cmd) {
+        JsonObject response = new JsonObject();
+        if (cmd.getAsJsonPrimitive("type").getAsString().equals("exit")) {
+            response.addProperty("response", "OK");
+        } else {
+            response.addProperty("response", "ERROR");
         }
+        return response.toString();
     }
 }
