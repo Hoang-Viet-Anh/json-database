@@ -2,36 +2,30 @@ package server;
 
 import com.google.gson.*;
 
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+
 
 public class Database {
     private static final Database INSTANCE = new Database();
-    private final JsonObject jsonDB;
-    private JsonObject cmd;
+    private JsonObject jsonDB;
+    private final String FILE_PATH = "src/server/data/db.json";
+    private final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
 
     private Database() {
-        jsonDB = new JsonObject();
+
     }
 
     public static Database getInstance() {
         return INSTANCE;
     }
 
-    public String setCell(JsonObject cmd) {
-        JsonObject response = new JsonObject();
-        String key = cmd.getAsJsonPrimitive("key").getAsString();
-        if (jsonDB.has(key)) {
-            jsonDB.remove("key");
-        }
-        JsonElement jsonElement = jsonDB.getAsJsonPrimitive(key);
-        String value = cmd.getAsJsonPrimitive("value").getAsString();
-        jsonDB.addProperty(key, value);
-
-        response.addProperty("response", "OK");
-        return response.toString();
-    }
-
     public String parseCommand(String json) {
-        cmd = JsonParser.parseString(json).getAsJsonObject();
+        JsonObject cmd = JsonParser.parseString(json).getAsJsonObject();
         String type = cmd.getAsJsonPrimitive("type").getAsString();
 
         switch (type) {
@@ -52,27 +46,51 @@ public class Database {
         return response.toString();
     }
 
+    public synchronized String setCell(JsonObject cmd) {
+        if (jsonDB == null) {
+            readFile();
+        }
+
+        String key = cmd.getAsJsonPrimitive("key").getAsString();
+        String value = cmd.getAsJsonPrimitive("value").getAsString();
+        jsonDB.addProperty(key, value);
+        writeFile();
+
+        JsonObject response = new JsonObject();
+        response.addProperty("response", "OK");
+        return response.toString();
+    }
+
     public String getCell(JsonObject cmd) {
-            String key = cmd.getAsJsonPrimitive("key").getAsString();
-            JsonObject response = new JsonObject();
-            if (jsonDB.has(key)) {
+        if (jsonDB == null) {
+            readFile();
+        }
+
+        String key = cmd.getAsJsonPrimitive("key").getAsString();
+        JsonObject response = new JsonObject();
+        if (jsonDB.has(key)) {
                 JsonElement jsonElement = jsonDB.getAsJsonPrimitive(key);
                 String value = jsonElement.getAsString();
                 response.addProperty("response", "OK");
                 response.addProperty("value", value);
                 return response.toString();
-            } else {
+        } else {
                 response.addProperty("response", "ERROR");
                 response.addProperty("reason", "No such key");
                 return response.toString();
-            }
+        }
     }
 
-    public String deleteCell(JsonObject cmd) {
+    public synchronized String deleteCell(JsonObject cmd) {
+        if (jsonDB == null) {
+            readFile();
+        }
+
         String key = cmd.getAsJsonPrimitive("key").getAsString();
         JsonObject response = new JsonObject();
         if (jsonDB.remove(key) != null) {
             response.addProperty("response", "OK");
+            writeFile();
         } else {
             response.addProperty("response", "ERROR");
             response.addProperty("reason", "No such key");
@@ -80,7 +98,7 @@ public class Database {
         return response.toString();
     }
 
-    public String closeServer(JsonObject cmd) {
+    public synchronized String closeServer(JsonObject cmd) {
         JsonObject response = new JsonObject();
         if (cmd.getAsJsonPrimitive("type").getAsString().equals("exit")) {
             response.addProperty("response", "OK");
@@ -88,5 +106,20 @@ public class Database {
             response.addProperty("response", "ERROR");
         }
         return response.toString();
+    }
+
+    public synchronized void readFile() {
+        try (FileReader reader = new FileReader(FILE_PATH)) {
+            jsonDB = JsonParser.parseReader(reader).getAsJsonObject();
+        } catch (IOException exc) {
+            exc.printStackTrace();
+        }
+    }
+    public synchronized void writeFile() {
+        try (FileWriter writer = new FileWriter(FILE_PATH)) {
+            gson.toJson(jsonDB, writer);
+        } catch (IOException exc) {
+            exc.printStackTrace();
+        }
     }
 }

@@ -24,43 +24,6 @@ files:
         }
     }
   learner_created: false
-- name: test/JsonRequestBuilder.java
-  visible: false
-  text: |-
-    import com.google.gson.Gson;
-    import com.google.gson.JsonObject;
-
-    class JsonBuilder {
-
-        private final Gson gson = new Gson();
-        private final JsonObject jsonObject = new JsonObject();
-
-        private JsonBuilder() {
-        }
-
-        public static JsonBuilder newBuilder() {
-            return new JsonBuilder();
-        }
-
-        public JsonBuilder addValue(String key, String value) {
-            jsonObject.addProperty(key, value);
-            return this;
-        }
-
-        public JsonBuilder addJsonObject(String key, JsonObject object) {
-            jsonObject.add(key, object);
-            return this;
-        }
-
-        public String getAsString() {
-            return jsonObject.toString();
-        }
-
-        public JsonObject getAsJsonObject() {
-            return jsonObject;
-        }
-    }
-  learner_created: false
 - name: test/JsonDatabaseTest.java
   visible: false
   text: |
@@ -599,6 +562,271 @@ files:
         }
     }
   learner_created: false
+- name: src/server/Session.java
+  visible: true
+  text: |
+    package server;
+
+    import java.io.DataInputStream;
+    import java.io.DataOutputStream;
+    import java.io.IOException;
+    import java.net.Socket;
+
+    public class Session extends Thread {
+        private final Socket socket;
+
+        public Session(Socket socketForClient) {
+            this.socket = socketForClient;
+        }
+
+        public void run() {
+            String received = null;
+            String sent = null;
+
+            try (
+                    DataInputStream input = new DataInputStream(socket.getInputStream());
+                    DataOutputStream output = new DataOutputStream(socket.getOutputStream())
+            ) {
+                received = input.readUTF();
+                System.out.println("Received: " + received);
+                sent = Application.startJSONDB(received);
+                if (received.contains("exit")) {
+                    System.out.println("Sent: " + sent);
+                    output.writeUTF(sent);
+                    socket.close();
+                    Main.loop = false;
+                } else {
+                    System.out.println("Sent: " + sent);
+                    output.writeUTF(sent);
+                    socket.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+  learner_created: true
+- name: src/server/Application.java
+  visible: true
+  text: |
+    package server;
+
+    import java.util.NoSuchElementException;
+    import java.util.Scanner;
+
+    public class Application {
+        private static Database database;
+        private static View view;
+
+        public static String startJSONDB(String command) {
+            database = Database.getInstance();
+            view = View.getInstance();
+
+            return database.parseCommand(command);
+        }
+    }
+  learner_created: true
+- name: src/server/Database.java
+  visible: true
+  text: |
+    package server;
+
+    import com.google.gson.*;
+
+
+    public class Database {
+        private static final Database INSTANCE = new Database();
+        private final JsonObject jsonDB;
+        private JsonObject cmd;
+
+        private Database() {
+            jsonDB = new JsonObject();
+        }
+
+        public static Database getInstance() {
+            return INSTANCE;
+        }
+
+        public String setCell(JsonObject cmd) {
+            JsonObject response = new JsonObject();
+            String key = cmd.getAsJsonPrimitive("key").getAsString();
+            if (jsonDB.has(key)) {
+                jsonDB.remove("key");
+            }
+            JsonElement jsonElement = jsonDB.getAsJsonPrimitive(key);
+            String value = cmd.getAsJsonPrimitive("value").getAsString();
+            jsonDB.addProperty(key, value);
+
+            response.addProperty("response", "OK");
+            return response.toString();
+        }
+
+        public String parseCommand(String json) {
+            cmd = JsonParser.parseString(json).getAsJsonObject();
+            String type = cmd.getAsJsonPrimitive("type").getAsString();
+
+            switch (type) {
+                case "set":
+                    return setCell(cmd);
+                case "get":
+                    return getCell(cmd);
+                case "delete":
+                    return deleteCell(cmd);
+                case "exit":
+                    return closeServer(cmd);
+                default:
+                    break;
+            }
+            JsonObject response = new JsonObject();
+            response.addProperty("response", "ERROR");
+            response.addProperty("reason", "Unknown command");
+            return response.toString();
+        }
+
+        public String getCell(JsonObject cmd) {
+                String key = cmd.getAsJsonPrimitive("key").getAsString();
+                JsonObject response = new JsonObject();
+                if (jsonDB.has(key)) {
+                    JsonElement jsonElement = jsonDB.getAsJsonPrimitive(key);
+                    String value = jsonElement.getAsString();
+                    response.addProperty("response", "OK");
+                    response.addProperty("value", value);
+                    return response.toString();
+                } else {
+                    response.addProperty("response", "ERROR");
+                    response.addProperty("reason", "No such key");
+                    return response.toString();
+                }
+        }
+
+        public String deleteCell(JsonObject cmd) {
+            String key = cmd.getAsJsonPrimitive("key").getAsString();
+            JsonObject response = new JsonObject();
+            if (jsonDB.remove(key) != null) {
+                response.addProperty("response", "OK");
+            } else {
+                response.addProperty("response", "ERROR");
+                response.addProperty("reason", "No such key");
+            }
+            return response.toString();
+        }
+
+        public String closeServer(JsonObject cmd) {
+            JsonObject response = new JsonObject();
+            if (cmd.getAsJsonPrimitive("type").getAsString().equals("exit")) {
+                response.addProperty("response", "OK");
+            } else {
+                response.addProperty("response", "ERROR");
+            }
+            return response.toString();
+        }
+    }
+  learner_created: true
+- name: src/client/Command.java
+  visible: true
+  text: |
+    package client;
+
+    import com.beust.jcommander.Parameter;
+
+    public class Command {
+        @Parameter (names = "-t")
+        private String type;
+        @Parameter (names = "-k")
+        private String key;
+        @Parameter (names = "-v")
+        private String value = null;
+    }
+  learner_created: true
+- name: src/server/View.java
+  visible: true
+  text: |
+    package server;
+
+    public class View {
+        private static final View INSTANCE = new View();
+
+        private View() {}
+
+        public static View getInstance() {
+            return INSTANCE;
+        }
+
+        public void printMenu() {
+            System.out.println("set index text - set text by index of db.\n" +
+                    "get index - get text by index of db.\n" +
+                    "delete index - delete text by index of db.");
+        }
+
+        public void printSet(boolean set) {
+            System.out.println(set ? "OK" : "ERROR");
+        }
+
+        public void printGet(String cell) {
+            System.out.println(cell);
+        }
+
+        public void printDelete(boolean delete) {
+            System.out.println(delete ? "OK" : "ERROR");
+        }
+
+        public void printUnknownCommand() {
+            System.out.println("Unknown command.");
+        }
+    }
+  learner_created: true
+- name: test/JsonRequestBuilder.java
+  visible: false
+  text: |-
+    import com.google.gson.Gson;
+    import com.google.gson.JsonObject;
+
+    class JsonBuilder {
+
+        private final Gson gson = new Gson();
+        private final JsonObject jsonObject = new JsonObject();
+
+        private JsonBuilder() {
+        }
+
+        public static JsonBuilder newBuilder() {
+            return new JsonBuilder();
+        }
+
+        public JsonBuilder addValue(String key, String value) {
+            jsonObject.addProperty(key, value);
+            return this;
+        }
+
+        public JsonBuilder addJsonObject(String key, JsonObject object) {
+            jsonObject.add(key, object);
+            return this;
+        }
+
+        public String getAsString() {
+            return jsonObject.toString();
+        }
+
+        public JsonObject getAsJsonObject() {
+            return jsonObject;
+        }
+    }
+  learner_created: false
+- name: src/client/data/testGet.json
+  visible: true
+  learner_created: true
+- name: src/client/data/testDelete.json
+  visible: true
+  learner_created: true
+- name: src/client/data/testSet.json
+  visible: true
+  learner_created: true
+- name: src/server/data/db.json
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/5494#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: Sat, 02 Apr 2022 13:17:29 UTC
 record: -1

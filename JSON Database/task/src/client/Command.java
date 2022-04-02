@@ -4,9 +4,11 @@ import com.beust.jcommander.Parameter;
 
 public class Command {
     @Parameter (names = "-t")
-    private String type;
+    public String type;
     @Parameter (names = "-k")
-    private String key;
+    public String key;
     @Parameter (names = "-v")
-    private String value = null;
+    public String value = null;
+    @Parameter (names = "-in")
+    public String fileName = null;
 }
