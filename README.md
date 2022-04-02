@@ -5,9 +5,11 @@ JSON database is a single file database that stores information in</br>
 the form of JSON. It is a remote database, so it's usually accessed</br>
 through the Internet.
 
-In fourth stage, the database stored in the JSON format.</br>
-Also, you should send to the server a valid JSON (as a string) which</br>
-includes all the parameters needed to execute the request.
+In fifth stage, improved your client and server by adding the ability</br>
+to work with files.
+
+The server keep the database on the hard drive in the db.json file</br>
+and update only after setting a new value or deleting one.
 
 To make request to server you should start jar clientFile with</br>
 parameters like below:</br>

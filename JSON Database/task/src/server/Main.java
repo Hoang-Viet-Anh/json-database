@@ -10,13 +10,14 @@ public class Main {
 
     public static void main(String[] args) {
         try (ServerSocket server = new ServerSocket(PORT)) {
-//            server.setSoTimeout(15);
+
             while (loop) {
                 System.out.println("Server started!");
                 Session session = new Session(server.accept());
                 session.start();
                 session.join();
             }
+
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }

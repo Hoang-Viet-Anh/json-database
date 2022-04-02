@@ -3,9 +3,9 @@ package client;
 import com.beust.jcommander.JCommander;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import com.google.gson.JsonParser;
+
+import java.io.*;
 import java.net.Socket;
 
 public class Main {
@@ -14,7 +14,7 @@ public class Main {
     private static final int SERVER_PORT = 34522;
 
     public static void main(String[] args) {
-        String msg;
+        String msg = null;
         Command cmd = new Command();
         JCommander.newBuilder()
                 .addObject(cmd)
@@ -22,7 +22,15 @@ public class Main {
                 .parse(args);
         GsonBuilder gsonBuilder = new GsonBuilder();
         Gson gson = gsonBuilder.create();
-        msg = gson.toJson(cmd);
+        if (cmd.fileName != null) {
+            try (FileReader reader = new FileReader("src/client/data/" + cmd.fileName)) {
+                msg = gson.toJson(JsonParser.parseReader(reader));
+            } catch (IOException exc) {
+                exc.printStackTrace();
+            }
+        } else {
+            msg = gson.toJson(cmd);
+        }
 
         try (
                 Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
@@ -32,11 +40,11 @@ public class Main {
 
             System.out.println("Client started!");
 
-            output.writeUTF(msg);
             System.out.println("Sent: " + msg);
+            output.writeUTF(msg);
             String receivedMsg = input.readUTF();
-
             System.out.println("Received: " + receivedMsg);
+
         } catch (IOException e) {
             e.printStackTrace();
         }
