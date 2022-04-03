@@ -19,5 +19,27 @@ parameters like below:</br>
 -t is the type of the request, and -k is the key. -v is the value to save</br>
 in the database: you only need it in case of a set request.
 
+In last stage, improved database. It is able to store not only</br>
+strings, but any JSON objects as values.
+
+The key should not only be a string since the user needs to</br>
+retrieve part of the JSON value. For example, in the code</br>
+snippet below, the user wants to get only the surname of the</br>
+person:
+
+{
+... ,
+
+    "person": {
+        "name": "Adam",
+        "surname": "Smith"
+    }
+    ...
+}
+
+Then, the user should type the full path to this field in a</br>
+form of a JSON array: ["person", "surname"]. If the user</br>
+wants to get the full person object, then they should type</br>
+["person"].
 
 Jar file is located by ./JSON Database/task/build/libs.

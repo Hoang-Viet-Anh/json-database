@@ -23,6 +23,11 @@ subprojects {
         }
     }
 
+    repositories {
+        mavenCentral()
+        maven { url "https://jitpack.io" }
+    }
+
     jar {
         manifest {
             attributes "Main-Class": "client.Main"
@@ -47,11 +52,6 @@ subprojects {
             }
         }
         with jar
-    }
-
-    repositories {
-        mavenCentral()
-        maven { url "https://jitpack.io" }
     }
 
     dependencies {

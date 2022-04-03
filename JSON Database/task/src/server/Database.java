@@ -6,14 +6,15 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Objects;
 
 
 public class Database {
     private static final Database INSTANCE = new Database();
     private JsonObject jsonDB;
-    private final String FILE_PATH = "src/server/data/db.json";
+    private final String FILE_PATH = "JSON Database/task/src/server/data/db.json";
     private final Gson gson = new GsonBuilder()
-            .setPrettyPrinting()
+            //.setPrettyPrinting()
             .create();
 
     private Database() {
@@ -51,34 +52,81 @@ public class Database {
             readFile();
         }
 
-        String key = cmd.getAsJsonPrimitive("key").getAsString();
-        String value = cmd.getAsJsonPrimitive("value").getAsString();
-        jsonDB.addProperty(key, value);
-        writeFile();
-
         JsonObject response = new JsonObject();
-        response.addProperty("response", "OK");
-        return response.toString();
+        if (cmd.get("key").isJsonArray()) {
+            JsonArray array = cmd.getAsJsonArray("key");
+            JsonObject object = jsonDB;
+            String lastKey = array.get(array.size() - 1).getAsString();
+            for (int i = 0; i < array.size() - 1; i++) {
+                String keys = array.get(i).getAsString();
+                if (object.has(keys)) {
+                    if (object.get(keys).isJsonObject()) {
+                        object = object.getAsJsonObject(keys);
+                    } else {
+                        object.add(keys, new JsonObject());
+                        object = object.getAsJsonObject(keys);
+                    }
+
+                } else {
+                    object.add(keys, new JsonObject());
+                    object = object.getAsJsonObject(keys);
+                }
+            }
+            object.add(lastKey, cmd.get("value"));
+            response.addProperty("response", "OK");
+            return gson.toJson(response);
+        } else if (cmd.get("key").isJsonPrimitive()) {
+            String key = cmd.getAsJsonPrimitive("key").getAsString();
+            jsonDB.add(key, cmd.get("value"));
+            response.addProperty("response", "OK");
+            return response.toString();
+        } else {
+            response.addProperty("response", "ERROR");
+            response.addProperty("reason", "No such key");
+            return response.toString();
+        }
     }
 
     public String getCell(JsonObject cmd) {
+        JsonElement jsonElement;
         if (jsonDB == null) {
             readFile();
         }
 
-        String key = cmd.getAsJsonPrimitive("key").getAsString();
         JsonObject response = new JsonObject();
-        if (jsonDB.has(key)) {
-                JsonElement jsonElement = jsonDB.getAsJsonPrimitive(key);
-                String value = jsonElement.getAsString();
+        if (cmd.get("key").isJsonArray()) {
+            JsonArray array = cmd.getAsJsonArray("key");
+            JsonObject object = jsonDB;
+            String lastKey = array.get(array.size() - 1).getAsString();
+            for (int i = 0; i < array.size() - 1; i++) {
+                String keys = array.get(i).getAsString();
+                if (object.has(keys)) {
+                    object = object.get(keys).isJsonObject() ?
+                            object.getAsJsonObject(keys) : object;
+
+                } else {
+                    object = null;
+                    break;
+                }
+            }
+
+            if (object != null && object.has(lastKey)) {
                 response.addProperty("response", "OK");
-                response.addProperty("value", value);
-                return response.toString();
+                response.add("value", object.get(lastKey));
+                return gson.toJson(response);
+            }
         } else {
-                response.addProperty("response", "ERROR");
-                response.addProperty("reason", "No such key");
+            String key = cmd.getAsJsonPrimitive("key").getAsString();
+            if (jsonDB.has(key)) {
+                jsonElement = jsonDB.getAsJsonPrimitive(key);
+                response.addProperty("response", "OK");
+                response.add("value", jsonElement);
                 return response.toString();
+            }
         }
+        response.addProperty("response", "ERROR");
+        response.addProperty("reason", "No such key");
+        return response.toString();
     }
 
     public synchronized String deleteCell(JsonObject cmd) {
@@ -86,15 +134,38 @@ public class Database {
             readFile();
         }
 
-        String key = cmd.getAsJsonPrimitive("key").getAsString();
         JsonObject response = new JsonObject();
-        if (jsonDB.remove(key) != null) {
-            response.addProperty("response", "OK");
-            writeFile();
+        if (cmd.get("key").isJsonArray()) {
+            JsonArray array = cmd.getAsJsonArray("key");
+            JsonObject object = jsonDB;
+            String lastKey = array.get(array.size() - 1).getAsString();
+            for (int i = 0; i < array.size() - 1; i++) {
+                String keys = array.get(i).getAsString();
+                if (object.has(keys)) {
+                    object = object.get(keys).isJsonObject() ?
+                            object.getAsJsonObject(keys) : object;
+
+                } else {
+                    object = null;
+                    break;
+                }
+            }
+
+            if (object != null && object.has(lastKey)) {
+                object.remove(lastKey);
+                response.addProperty("response", "OK");
+                return gson.toJson(response);
+            }
         } else {
-            response.addProperty("response", "ERROR");
-            response.addProperty("reason", "No such key");
+            String key = cmd.getAsJsonPrimitive("key").getAsString();
+            if (jsonDB.remove(key) != null) {
+                writeFile();
+                response.addProperty("response", "OK");
+                return response.toString();
+            }
         }
+        response.addProperty("response", "ERROR");
+        response.addProperty("reason", "No such key");
         return response.toString();
     }
 

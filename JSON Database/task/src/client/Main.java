@@ -1,3 +1,7 @@
+/*
+    You should execute server.Main first then client.Main after
+ */
+
 package client;
 
 import com.beust.jcommander.JCommander;
@@ -20,10 +24,11 @@ public class Main {
                 .addObject(cmd)
                 .build()
                 .parse(args);
-        GsonBuilder gsonBuilder = new GsonBuilder();
-        Gson gson = gsonBuilder.create();
+        Gson gson = new GsonBuilder()
+              //  .setPrettyPrinting()
+                .create();
         if (cmd.fileName != null) {
-            try (FileReader reader = new FileReader("src/client/data/" + cmd.fileName)) {
+            try (FileReader reader = new FileReader("JSON Database/task/src/client/data/" + cmd.fileName)) {
                 msg = gson.toJson(JsonParser.parseReader(reader));
             } catch (IOException exc) {
                 exc.printStackTrace();
